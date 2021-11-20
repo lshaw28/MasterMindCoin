@@ -1,5 +1,5 @@
 {
-  "name": "cryptochain",
+  "name": "mastermindcoin",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -29,5 +29,13 @@
     "redis": "^2.8.0",
     "request": "^2.88.0",
     "uuid": "^3.3.2"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mrwizard2/MasterMindCoin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mrwizard2/MasterMindCoin/issues"
+  },
+  "homepage": "https://github.com/mrwizard2/MasterMindCoin#readme"
 }
