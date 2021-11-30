@@ -1,19 +1,28 @@
 const bodyParser = require('body-parser');
 const express = require('express');
 const request = require('request');
+const path = require('path');
 const Blockchain = require('./blockchain');
 const PubSub = require('./app/pubsub');
 const TransactionPool = require('./wallet/transaction-pool');
 const Wallet = require('./wallet');
+const TransactionMiner = require('./app/transaction-miner');
+
+const isDevelopment = process.env.ENV === 'development';
+
+const REDIS_URL = isDevelopment ?
+  'redis://127.0.0.1:6379' :
+  'redis://h:p05f9a274bd0e2414e52cb9516f8cbcead154d7d61502d32d9750180836a7cc05@ec2-34-225-229-4.compute-1.amazonaws.com:19289'
+const DEFAULT_PORT = 3000;
+const ROOT_NODE_ADDRESS = `http://localhost:${DEFAULT_PORT}`;
 
 const app = express();
 const blockchain = new Blockchain();
 const transactionPool = new TransactionPool();
 const wallet = new Wallet();
-const pubsub = new PubSub({ blockchain, transactionPool, wallet });
-
-const DEFAULT_PORT = 3000;
-const ROOT_NODE_ADDRESS = `http://localhost:${DEFAULT_PORT}`;
+const pubsub = new PubSub({ blockchain, transactionPool, redisUrl: REDIS_URL });
+// const pubsub = new PubSub({ blockchain, transactionPool, wallet }); // for PubNub
+const transactionMiner = new TransactionMiner({ blockchain, transactionPool, wallet, pubsub });
 
 app.use(bodyParser.json());
 
@@ -41,7 +50,11 @@ app.post('/api/transact', (req, res) => {
         if (transaction) {
             transaction.update({ senderWallet: wallet, recipient, amount });
         } else {
-            transaction = wallet.createTransaction({ recipient, amount });
+            transaction = wallet.createTransaction({ 
+                recipient, 
+                amount, 
+                chain: blockchain.chain 
+            });
         }
     } catch(error) {
         return res.status(400).json({ type: 'error', message: error.message });
@@ -56,6 +69,20 @@ app.post('/api/transact', (req, res) => {
 
 app.get('/api/transaction-pool-map', (req, res) => {
     res.json(transactionPool.transactionMap);
+});
+
+app.get('/api/mine-transactions', (req, res) => {
+    transactionMiner.mineTransactions();
+
+    res.redirect('/api/blocks');
+});
+
+app.get('/api/wallet-info', (req,res) => {
+    const address = wallet.publicKey;
+    res.json({ 
+        address: wallet.publicKey,
+        balance: Wallet.calculateBalance({ chain: blockchain.chain, address })
+    });
 });
 
 const syncWithRootState = () => {
